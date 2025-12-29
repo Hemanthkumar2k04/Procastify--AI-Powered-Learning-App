@@ -1,0 +1,7 @@
+{
+  "name": "Procastify",
+  "description": "An AI-powered productivity & study companion helping students consume content faster and stick to personalized routines.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
