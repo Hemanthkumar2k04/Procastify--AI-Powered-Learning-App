@@ -606,3 +606,34 @@ export const playAudioBlob = async (base64Audio: string) => {
     console.error("Audio Playback Error", e);
   }
 }
+
+export const generateReels = async (content: string): Promise<string[]> => {
+  const ai = getAI();
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_TEXT,
+      contents: [
+        { text: "Extract exactly 5 engaging, short, standalone learning points (under 50 words each) from this text.\nFocus on 'Did you know?' style facts, key insights, or quick definitions.\nReturn JSON array of strings.\n\nCONTENT:" },
+        { text: content.substring(0, 15000) }
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.STRING
+          }
+        }
+      }
+    });
+
+    if (!response || !response.text) return [];
+
+    const reels = safeJSONParse<string[]>(response.text, []);
+    // Enforce exactly 5 if possible, or at least slice if too many. LLM usually obeys schema.
+    return Array.isArray(reels) ? reels.slice(0, 5) : [];
+  } catch (error) {
+    console.error("Reel Gen Error:", error);
+    return [];
+  }
+};
