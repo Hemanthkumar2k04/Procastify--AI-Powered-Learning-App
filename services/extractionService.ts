@@ -1,5 +1,14 @@
 import { Attachment } from '../types';
-import { fetchURLContent } from './urlContentService';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker to use local bundled worker
+try {
+  // Use locally served worker file
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+} catch {
+  // Fallback to CDN only if local worker fails
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+}
 
 export interface ExtractionResult {
   text: string;
@@ -13,9 +22,63 @@ interface NormalizeResult {
 }
 
 /**
- * Prepares text for summarization by processing attachments and user input
- * This function handles all attachment types client-side without backend dependency
+ * Extract text from a PDF file using PDF.js
  */
+export const extractPDFText = async (pdfBase64: string): Promise<ExtractionResult> => {
+  try {
+    // Convert base64 to array buffer
+    const binaryString = atob(pdfBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Load the PDF document
+    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    let fullText = '';
+
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      // Combine text items from the page
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      
+      fullText += pageText + '\n\n';
+    }
+
+    // Clean up the text
+    const cleanedText = fullText
+      .replace(/[ \t]+/g, ' ')  // Replace multiple spaces/tabs with single space, preserve newlines
+      .replace(/\n\s*\n/g, '\n\n')  // Clean up multiple newlines
+      .trim();
+
+    if (!cleanedText) {
+      return {
+        text: '',
+        success: false,
+        error: 'No readable text found in PDF'
+      };
+    }
+
+    return {
+      text: cleanedText,
+      success: true
+    };
+
+  } catch (error) {
+    console.error('PDF text extraction failed:', error);
+    return {
+      text: '',
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error during PDF extraction'
+    };
+  }
+};
+
 export const prepareTextForSummarization = async (
   userText: string,
   attachments: Attachment[]
@@ -23,82 +86,75 @@ export const prepareTextForSummarization = async (
   // If no context at all
   if (!userText && attachments.length === 0) return null;
 
-  const textParts: string[] = [];
+  let combinedText = userText || '';
   const failedExtractions: string[] = [];
 
-  // Add user-typed text first
-  if (userText && userText.trim()) {
-    textParts.push(userText.trim());
-  }
+  // First, handle PDF attachments locally using our PDF.js extraction
+  const pdfAttachments = attachments.filter(a => a.type === 'pdf');
+  const nonPdfAttachments = attachments.filter(a => a.type !== 'pdf');
 
-  // Process each attachment
-  for (const attachment of attachments) {
+  // Extract text from PDF files locally
+  for (const pdfAttachment of pdfAttachments) {
     try {
-      switch (attachment.type) {
-        case 'url': {
-          console.log('Fetching URL content:', attachment.content);
-          const result = await fetchURLContent(attachment.content);
-
-          if (result.success && result.text) {
-            const header = result.title
-              ? `\n\n--- Content from: ${result.title} ---\n\n`
-              : `\n\n--- Content from URL ---\n\n`;
-            textParts.push(header + result.text);
-          } else {
-            const errorMsg = `URL: ${attachment.name || attachment.content} - ${result.error || 'Failed to extract content'}`;
-            failedExtractions.push(errorMsg);
-            console.warn('URL extraction failed:', errorMsg);
-          }
-          break;
-        }
-
-        case 'pdf': {
-          // For PDFs, we'll rely on the Gemini multimodal API to handle them
-          // The PDF content is already base64 encoded in attachment.content
-          // We'll pass a marker that this is a PDF attachment
-          textParts.push(`\n\n--- PDF Document: ${attachment.name || 'Document'} ---\n[PDF content will be processed by AI]\n`);
-          // Note: The actual PDF processing happens in geminiService via multimodal API
-          break;
-        }
-
-        case 'audio': {
-          // Similar to PDF, audio transcription should be handled by Gemini's multimodal capabilities
-          textParts.push(`\n\n--- Audio Recording: ${attachment.name || 'Voice Note'} ---\n[Audio content will be transcribed by AI]\n`);
-          // Note: The actual audio processing happens in geminiService via multimodal API
-          break;
-        }
-
-        case 'image': {
-          // Images should be handled by Gemini's vision capabilities
-          textParts.push(`\n\n--- Image: ${attachment.name || 'Image'} ---\n[Image content will be analyzed by AI]\n`);
-          // Note: The actual image processing happens in geminiService via multimodal API
-          break;
-        }
-
-        default:
-          failedExtractions.push(`Unknown attachment type: ${attachment.type}`);
+      const result = await extractPDFText(pdfAttachment.content);
+      if (result.success && result.text) {
+        combinedText += `\n\n--- Content from ${pdfAttachment.name || 'PDF file'} ---\n${result.text}`;
+      } else {
+        console.warn(`Failed to extract text from PDF: ${result.error}`);
+        failedExtractions.push(pdfAttachment.name || 'PDF file');
       }
-    } catch (error: any) {
-      const errorMsg = `${attachment.name || attachment.type}: ${error.message || 'Processing failed'}`;
-      failedExtractions.push(errorMsg);
-      console.error('Attachment processing error:', error);
+    } catch (error) {
+      console.error('PDF extraction error:', error);
+      failedExtractions.push(pdfAttachment.name || 'PDF file');
     }
   }
 
-  // If no content was successfully extracted at all
-  if (textParts.length === 0) {
-    return {
-      combinedText: '',
-      failedExtractions: failedExtractions.length > 0
-        ? failedExtractions
-        : ['No content could be extracted from the provided inputs']
-    };
+  // Handle non-PDF attachments through backend (if needed)
+  if (nonPdfAttachments.length > 0) {
+    try {
+      const response = await fetch(`${BACKEND_URL}/normalize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_text: '', // We'll merge manually
+          attachments: nonPdfAttachments.map(a => ({
+            type: a.type,
+            content: a.content,
+            name: a.name,
+            mimeType: a.mimeType
+          }))
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'success' && data.normalized_text) {
+          combinedText += `\n\n--- Content from other attachments ---\n${data.normalized_text}`;
+        } else {
+          // If backend failed, add failed attachments to our list
+          if (data.failed_attachments) {
+            failedExtractions.push(...data.failed_attachments);
+          } else {
+            failedExtractions.push(...nonPdfAttachments.map(a => a.name || a.type));
+          }
+        }
+      } else {
+        console.warn('Backend not available for non-PDF attachments');
+        failedExtractions.push(...nonPdfAttachments.map(a => a.name || a.type));
+      }
+    } catch (error) {
+      console.warn('Backend not available for non-PDF attachments:', error);
+      failedExtractions.push(...nonPdfAttachments.map(a => a.name || a.type));
+    }
   }
 
-  const combinedText = textParts.join('\n');
+  // Final fallback if no text was extracted
+  if (!combinedText.trim()) {
+    return null;
+  }
 
   return {
-    combinedText,
+    combinedText: combinedText.trim(),
     failedExtractions
   };
 };
