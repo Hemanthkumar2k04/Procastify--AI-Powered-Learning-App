@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { summarizeContent, generateFlashcards, generateSpeech, playAudioBlob } from '../services/geminiService';
 import { Summary, Flashcard, Note, Attachment, CustomMode } from '../types';
-import { Sparkles, FileText, Link as LinkIcon, Image as ImageIcon, Mic, FileUp, Volume2, Plus, Square, X, Paperclip, ChevronRight, StopCircle, CheckCircle, FilePlus, BookOpen, Edit3, Trash2, Save } from 'lucide-react';
+import { Sparkles, Link as LinkIcon, Mic, FileUp, Volume2, Plus, X, Paperclip, CheckCircle, FilePlus, BookOpen, Edit3, Trash2, Save } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { StorageService } from '../services/storageService';
 
