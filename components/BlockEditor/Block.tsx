@@ -164,12 +164,27 @@ const BlockComponent: React.FC<BlockProps> = ({
                 deleteBlock(block.id);
             }
         } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            onArrowUp(index);
-        } else if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            onArrowDown(index);
-        }
+    const selection = window.getSelection();
+    if (!selection || selection.anchorOffset !== 0) return;
+
+    e.preventDefault();
+    onArrowUp(index);
+} else if (e.key === 'ArrowDown') {
+    const el = contentRef.current;
+    const selection = window.getSelection();
+
+    if (!el || !selection) return;
+
+    const isAtEnd =
+        selection.anchorNode === el.lastChild &&
+        selection.anchorOffset === el.lastChild?.textContent?.length;
+
+    if (!isAtEnd) return;
+
+    e.preventDefault();
+    onArrowDown(index);
+}
+
     };
 
     // Styles based on type
