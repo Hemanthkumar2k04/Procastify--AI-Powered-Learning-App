@@ -310,9 +310,10 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ content, onUpdate, read
                 </div>
             )}
 
-            <div className="w-full flex-1 overflow-y-auto px-12 py-8" onPaste={!readOnly ? handlePaste : undefined}>
+            <div className="w-full flex-1 overflow-y-auto px-6 md:px-10 py-8" onPaste={!readOnly ? handlePaste : undefined}>
                 {/* Editor Area */}
-                <div className="flex flex-col gap-1 max-w-3xl mx-auto">
+                <div className="flex flex-col gap-1 max-w-[720px] mx-auto w-full">
+
                     {blocks.map((block, index) => (
                         <BlockComponent
                             key={block.id}
