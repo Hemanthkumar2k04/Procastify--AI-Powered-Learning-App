@@ -31,13 +31,11 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Form State
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
-    // Unique Visual State: Avatar Seed
     const [avatarSeed, setAvatarSeed] = useState(Math.random().toString());
 
     const handleGoogleLogin = async () => {
@@ -69,7 +67,7 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
         try {
             if (isSignUp) {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const avatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${fullName}`;
+                const avatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${avatarSeed}`;
 
                 // Explicitly update profile with Name and Avatar
                 await updateProfile(userCredential.user, {
@@ -114,9 +112,9 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
 
     return (
         <div className="min-h-screen w-full bg-[#1e1f22] flex overflow-hidden relative">
-            {/* Left Panel - Visual & Interactive */}
+            {/* Left Panel*/}
             <div className="hidden lg:flex w-1/2 relative flex-col justify-center items-center p-12 overflow-hidden">
-                {/* Background Underlay */}
+                {/* Background Image*/}
                 <img
                     src="https://meridianit.com.au/wp-content/uploads/2023/09/Meridian-SecurityServices-Governance-Banner.jpeg"
                     alt="Background"
@@ -135,12 +133,11 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
                         transition={{ duration: 0.5 }}
                         className="mb-8 relative"
                     >
-                        {/* Unique Interaction: Dynamic Avatar Preview */}
                         <div className="w-48 h-48 mx-auto bg-white/5 rounded-full border border-white/10 flex items-center justify-center relative overflow-hidden group hover:border-[#5865F2]/50 transition-all cursor-pointer"
                             onClick={() => setAvatarSeed(Math.random().toString())}
                         >
                             <img
-                                src={`https://api.dicebear.com/7.x/notionists/svg?seed=${isSignUp ? ((firstName || lastName) || avatarSeed) : 'procastify'}`}
+                                src={`https://api.dicebear.com/7.x/notionists/svg?seed=${avatarSeed}`}
                                 alt="Avatar Preview"
                                 className="w-full h-full object-cover"
                             />
@@ -161,7 +158,7 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
                             : "Your personalized dashboard is ready. Let's get things done."}
                     </p>
 
-                    {/* Feature Cards */}
+                    {/*Cards*/}
                     <div className="mt-12 grid grid-cols-1 gap-4">
                         {backgrounds.map((bg, idx) => (
                             <motion.div
@@ -181,7 +178,7 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
                 </div>
             </div>
 
-            {/* Right Panel - Form */}
+            {/* Right Panel */}
             <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 lg:p-24 relative z-20 bg-[#1e1f22] lg:bg-transparent">
                 {onBack && (
                     <button onClick={onBack} className="absolute top-8 left-8 text-gray-400 hover:text-white flex items-center gap-2 transition-colors">
