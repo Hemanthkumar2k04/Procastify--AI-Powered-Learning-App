@@ -13,6 +13,7 @@ import {
     Mail, Lock, User, ArrowRight, Loader2,
     Sparkles, Brain, Rocket, Globe, ChevronLeft
 } from 'lucide-react';
+import { UserPreferences } from '../types';
 
 interface AuthPageProps {
     onLoginSuccess: () => void;
@@ -44,7 +45,6 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
         try {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
-            // Profile checks are handled in App.tsx typically, but onLoginSuccess triggers view change
             onLoginSuccess();
         } catch (err: any) {
             console.error(err);
@@ -54,7 +54,7 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
         }
     };
 
-    const handleEmailAuth = async (e: React.FormEvent) => {
+    const handleEmailAuth = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!email || !password) return;
         if (isSignUp && (!firstName || !lastName)) return;
@@ -69,14 +69,11 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const avatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${avatarSeed}`;
 
-                // Explicitly update profile with Name and Avatar
                 await updateProfile(userCredential.user, {
                     displayName: fullName,
                     photoURL: avatarUrl
                 });
-
-                // Pre-create profile in Firestore to ensure data consistency
-                await StorageService.saveUserProfile({
+                let profile: UserPreferences = {
                     id: userCredential.user.uid,
                     name: fullName,
                     email: email,
@@ -86,7 +83,9 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
                     energyPeak: 'morning',
                     goal: 'Productivity',
                     distractionLevel: 'medium'
-                });
+                }
+                await StorageService.saveUserProfile(profile);
+                onLoginSuccess();
             } else {
                 await signInWithEmailAndPassword(auth, email, password);
                 onLoginSuccess();
@@ -103,12 +102,6 @@ const Auth: React.FC<AuthPageProps> = ({ onLoginSuccess, onGuestAccess, onBack }
         }
     };
 
-    // Animation Variants
-    const pageTransition = {
-        initial: { opacity: 0, x: 20 },
-        animate: { opacity: 1, x: 0 },
-        exit: { opacity: 0, x: -20 }
-    };
 
     return (
         <div className="min-h-screen w-full bg-[#1e1f22] flex overflow-hidden relative">

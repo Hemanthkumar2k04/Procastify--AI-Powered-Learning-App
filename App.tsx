@@ -531,7 +531,7 @@ const App: React.FC = () => {
             sidebarCollapsed={sidebarCollapsed}
           />
         )}
-        
+
         {view === "examTracker" && (
           <ExamTracker userId={user.id} />
         )}
